@@ -2,6 +2,7 @@
 
 Simple Electron desktop application.
 
+* Vue.js is used for front-end framework.
 * Reads text data from sqlite database and shows in the application.
 * User can write query to choose the text list they want to see.
 * Support keyword highlight in the text display.
