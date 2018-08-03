@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Demo</title>
+    <script type='text/javascript' src='vue.js'></script>
+    <style>
+      body {
+        background: transparent;
+        padding: 0;
+        margin: 0;
+      }
+
+      .top {
+        height: 3em;
+        box-shadow: 0 2px 3px -2px rgba(0,0,0,.3);
+        line-height: 2.7rem;
+      }
+      
+      h1 {
+        margin: 0;
+        margin-left: 1%;
+      }
+
+      .main {
+        display: flex;
+        flex-direction: row;
+        position: absolute;
+        top: 3rem;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+
+      .left {
+        flex: 2;
+        background: #f5f2f0;
+        border-right: 1px solid #d5d2d0;
+        margin-top: 0.1rem;
+      }
+      
+      .right {
+        flex: 3;
+        margin: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 98.9%;
+      }
+      
+      #article {
+        width: 98.9%;
+        height: 100%;
+        resize: none;
+        overflow: auto;
+      }
+
+      #query {
+        width: 98.9%;
+        height: 20%;
+        resize: none;
+        overflow: auto;
+      }
+
+      #submit {
+        margin-left: 12%;
+        margin-top: 0.5rem;
+        margin-bottom: 1rem;
+      }
+
+      label {
+        margin-left: 1%;
+      }
+
+      #search {
+        margin-left: 12%;
+      }
+
+      .list {
+        display: flex;
+        justify-content: center;
+        overflow: auto;
+        height: 70%;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 80%;
+      }
+
+      th, td {
+          text-align: left;
+          padding: 8px;
+      }
+
+      tr:nth-child(odd){background-color: white}
+
+      th {
+          background-color: #4CAF50;
+          color: white;
+      }
+
+      #submit, #filter, #search {
+        display: inline-block;
+      }
+
+      .highlight {
+        background-color: #FFFF00;
+      }
+
+      .electron-in-page-search-window {
+        position: fixed;
+        top: 0;
+        right: 0;
+        border: solid grey 1px;
+        background-color: white;
+        width: 300px;
+        height: 36px;
+      }
+      .search-inactive {
+        visibility: hidden;
+      }
+      .search-active {
+        visibility: visible;
+      }
+
+      .loader {
+        border: 16px solid #f3f3f3;
+        border-top: 16px solid #3498db;
+        border-radius: 50%;
+        width: 120px;
+        height: 120px;
+        animation: spin 2s linear infinite;
+        z-index: 999;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="loader" v-show="processing"></div> 
+      <div class="top"><h1>Electron Demo</h1></div>
+      <div class="main">
+        <div class="left">
+          <textarea name="query" id="query" v-model="query"></textarea>
+          <div>
+            <label>Highlight text: </label>
+            <input type="text" id="filter" v-model="filterString">
+            <button id='search' v-on:click="this.search">Search Whole Page</button>
+            <button id='submit' v-on:click="this.submitQuery">Submit Query</button>
+          </div>
+          <div class="list">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Checked</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in this.articleList">
+                  <td>{{ item.id }}</td>
+                  <td v-on:click="showContent(item.id)">{{ item.name }}</td>
+                  <td><input type="checkbox" v-bind:checked="item.checked" v-on:click="updateData($event, item.id)"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="right">
+          <div name="article" id="article" v-html="highlightedContent"></div>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+
+      let database = require('./renderer.js');
+      const { dialog } = require('electron').remote;
+      const searchInPage = require('electron-in-page-search').default;
+      const remote =require('electron').remote;
+      const inPageSearch = searchInPage(remote.getCurrentWebContents());
+
+      var app = new Vue({
+      el: '#app',
+      data: {
+        query: "",
+        articleList: [],
+        showedContent: "",
+        filterString: "",
+        processing: false,
+      },
+      created: async function() {
+        this.processing = true;
+        const d = await database.getData('SELECT * FROM article LIMIT 100');
+        this.processing = false;
+        this.articleList = d;
+      },
+      methods: {
+        submitQuery: async function() {
+          this.processing = true;
+          const d = await database.getData(this.query);
+          this.processing = false;
+          this.articleList = d; 
+        },
+        showContent: function(id) {
+          const found = this.articleList.filter(d => d.id === id)
+          this.showedContent = found[0].content;
+        },
+        updateData: async function(e, id) {
+          await database.updateData(id, e.target.checked);
+        },
+        search: function() {
+          inPageSearch.openSearchWindow();
+        }
+      },
+      computed: {
+        highlightedContent: function() {
+          if (this.filterString === '')
+            return this.showedContent;
+          return this.showedContent.replace(new RegExp(this.filterString, "gi"), `<span class="highlight">${this.filterString}</span>`);
+        }
+      }
+    })
+    </script>
+  </body>
+</html>
